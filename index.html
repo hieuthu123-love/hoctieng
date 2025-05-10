@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Trò chơi học từ vựng</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(to bottom right, #dfefff, #f5fcff);
+            padding: 30px;
+            text-align: center;
+        }
+        
+        h2 {
+            color: #2b2d42;
+            margin-bottom: 10px;
+        }
+        
+        textarea {
+            width: 90%;
+            max-width: 600px;
+            height: 120px;
+            font-size: 16px;
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+            margin-bottom: 15px;
+        }
+        
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            background-color: #0077ff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 30px;
+            transition: background-color 0.3s;
+        }
+        
+        button:hover {
+            background-color: #005fcc;
+        }
+        
+        .word {
+            font-size: 36px;
+            font-weight: bold;
+            margin: 20px 0;
+            color: #003366;
+        }
+        
+        .choices {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background-color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            font-size: 18px;
+            transition: transform 0.2s, background-color 0.3s;
+        }
+        
+        .card:hover {
+            transform: scale(1.05);
+        }
+        
+        .correct {
+            background-color: #c8f7c5;
+        }
+        
+        .wrong {
+            background-color: #f7c5c5;
+        }
+        
+        .result {
+            margin-top: 25px;
+            font-size: 22px;
+            font-weight: bold;
+        }
+        
+        .hide {
+            display: none;
+        }
+        
+        .summary {
+            margin-top: 30px;
+            font-size: 18px;
+            text-align: left;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .summary h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .summary ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .summary li {
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>Nhập từ vựng (mỗi dòng: từ - nghĩa)</h2>
+    <textarea id="inputWords" placeholder="Ví dụ: apple - quả táo&#10;ねこ - con mèo"></textarea><br>
+    <button onclick="startGame()">🎮 Bắt đầu chơi</button>
+
+    <div id="game" class="hide">
+        <div class="word" id="word">Loading...</div>
+        <div class="choices" id="choices"></div>
+        <div class="result" id="result"></div>
+    </div>
+
+    <div id="summary" class="hide summary"></div>
+
+    <audio id="soundCorrect" src="correct.mp3" preload="auto"></audio>
+    <audio id="soundWrong" src="wrong.mp3" preload="auto"></audio>
+
+    <script>
+        let words = [];
+        let currentWordIndex = 0;
+        let correctCount = 0;
+        let answers = [];
+        let resultDiv = document.getElementById("result");
+        let correctSound = document.getElementById("soundCorrect");
+        let wrongSound = document.getElementById("soundWrong");
+
+        function detectLanguage(text) {
+            const japaneseRegex = /[\u3040-\u30ff\u4e00-\u9faf]/;
+            return japaneseRegex.test(text) ? 'ja-JP' : 'en-US';
+        }
+
+        function speakWord(text) {
+            const lang = detectLanguage(text);
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = lang;
+            utterance.rate = 0.9;
+            speechSynthesis.speak(utterance);
+        }
+
+        function startGame() {
+            const input = document.getElementById("inputWords").value.trim();
+            const lines = input.split("\n");
+            words = [];
+            correctCount = 0;
+            currentWordIndex = 0;
+            answers = [];
+            resultDiv.textContent = "";
+            document.getElementById("summary").classList.add("hide");
+
+            for (let line of lines) {
+                let parts = line.split("-");
+                if (parts.length === 2) {
+                    let en = parts[0].trim();
+                    let vi = parts[1].trim();
+                    if (en && vi) {
+                        words.push({
+                            en,
+                            vi
+                        });
+                    }
+                }
+            }
+
+            if (words.length < 4) {
+                alert("Bạn cần nhập ít nhất 4 từ vựng để chơi!");
+                return;
+            }
+
+            document.getElementById("game").classList.remove("hide");
+            loadWord();
+        }
+
+        function getRandomChoices(correctVi) {
+            let choices = [correctVi];
+            while (choices.length < 4) {
+                let randomVi = words[Math.floor(Math.random() * words.length)].vi;
+                if (!choices.includes(randomVi)) {
+                    choices.push(randomVi);
+                }
+            }
+            return choices.sort(() => Math.random() - 0.5);
+        }
+
+        function loadWord() {
+            if (currentWordIndex >= words.length) {
+                showSummary();
+                return;
+            }
+
+            resultDiv.textContent = "";
+            const currentWord = words[currentWordIndex];
+            document.getElementById("word").textContent = currentWord.en;
+            speakWord(currentWord.en);
+
+            const choices = getRandomChoices(currentWord.vi);
+            const choicesContainer = document.getElementById("choices");
+            choicesContainer.innerHTML = "";
+
+            choices.forEach(choice => {
+                let card = document.createElement("div");
+                card.className = "card";
+                card.textContent = choice;
+                card.onclick = () => {
+                    const isCorrect = choice === currentWord.vi;
+                    card.classList.add(isCorrect ? "correct" : "wrong");
+
+                    if (isCorrect) {
+                        correctCount++;
+                        resultDiv.textContent = "✅ Chính xác!";
+                        resultDiv.style.color = "green";
+                        correctSound.play();
+                    } else {
+                        resultDiv.textContent = `❌ Sai! Đáp án đúng: ${currentWord.vi}`;
+                        resultDiv.style.color = "red";
+                        wrongSound.play();
+                    }
+
+                    answers.push({
+                        word: currentWord.en,
+                        correct: currentWord.vi,
+                        user: choice,
+                        isCorrect: isCorrect
+                    });
+
+                    Array.from(document.querySelectorAll(".card")).forEach(btn => {
+                        btn.onclick = null;
+                    });
+
+                    setTimeout(() => {
+                        currentWordIndex++;
+                        loadWord();
+                    }, 2000);
+                };
+                choicesContainer.appendChild(card);
+            });
+        }
+
+        function showSummary() {
+            document.getElementById("game").classList.add("hide");
+            const summaryDiv = document.getElementById("summary");
+            summaryDiv.classList.remove("hide");
+
+            let html = `<h3>🎉 Tổng kết: Đúng ${correctCount}/${words.length} câu</h3><ul>`;
+            answers.forEach(ans => {
+                        html += `<li>${ans.word} - ${ans.correct} 
+                    ${ans.isCorrect ? '✅' : `❌ (Bạn chọn: ${ans.user})`}
+                </li>`;
+            });
+            html += `</ul>`;
+            summaryDiv.innerHTML = html;
+        }
+    </script>
+
+</body>
+
+</html>
