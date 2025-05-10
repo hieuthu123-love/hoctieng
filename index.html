@@ -3,7 +3,6 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trò chơi học từ vựng</title>
     <style>
         * {
@@ -23,7 +22,8 @@
         }
         
         textarea {
-            width: 100%;
+            width: 95%;
+            max-width: 600px;
             height: 120px;
             font-size: 16px;
             padding: 10px;
@@ -33,14 +33,14 @@
         }
         
         button {
-            padding: 12px 20px;
+            padding: 12px 24px;
             font-size: 16px;
             background-color: #0077ff;
             color: white;
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
             transition: background-color 0.3s;
         }
         
@@ -49,17 +49,17 @@
         }
         
         .word {
-            font-size: 28px;
+            font-size: 32px;
             font-weight: bold;
             margin: 20px 0;
             color: #003366;
         }
         
         .choices {
-            display: flex;
-            flex-direction: column;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
             gap: 15px;
-            max-width: 100%;
+            max-width: 500px;
             margin: 0 auto;
         }
         
@@ -74,19 +74,20 @@
         }
         
         .card:hover {
-            transform: scale(1.03);
+            background-color: #e0f0ff;
+            transform: scale(1.05);
         }
         
         .correct {
-            background-color: #ccffcc !important;
+            background-color: #c8facc !important;
         }
         
         .wrong {
-            background-color: #ffcccc !important;
+            background-color: #fbcaca !important;
         }
         
         .result {
-            margin-top: 20px;
+            margin-top: 25px;
             font-size: 20px;
             font-weight: bold;
         }
@@ -95,21 +96,22 @@
             display: none;
         }
         
-        .summary {
-            margin-top: 25px;
-            font-size: 18px;
-            text-align: left;
-            max-width: 500px;
-            margin-left: auto;
-            margin-right: auto;
+        @media (max-width: 600px) {
+            .word {
+                font-size: 24px;
+            }
+            .card {
+                font-size: 16px;
+                padding: 12px;
+            }
         }
     </style>
 </head>
 
 <body>
 
-    <h2>Nhập từ vựng (mỗi dòng: tiếng Anh hoặc Nhật - nghĩa tiếng Việt)</h2>
-    <textarea id="inputWords" placeholder="Ví dụ: apple - quả táo"></textarea><br>
+    <h2>Nhập từ vựng (mỗi dòng: từ gốc - nghĩa)</h2>
+    <textarea id="inputWords" placeholder="Ví dụ: apple - quả táo&#10;犬 - con chó"></textarea><br>
     <button onclick="startGame()">🎮 Bắt đầu chơi</button>
 
     <div id="game" class="hide">
@@ -118,21 +120,22 @@
         <div class="result" id="result"></div>
     </div>
 
-    <div id="summary" class="summary hide"></div>
+    <div id="summary" class="hide">
+        <h2>Kết quả tổng kết</h2>
+        <p id="scoreText"></p>
+        <ul id="reviewList"></ul>
+    </div>
 
     <script>
         let words = [];
-        let questions = [];
         let currentIndex = 0;
         let correctCount = 0;
+        let review = [];
 
         function startGame() {
             const input = document.getElementById("inputWords").value.trim();
             const lines = input.split("\n");
             words = [];
-            questions = [];
-            currentIndex = 0;
-            correctCount = 0;
 
             for (let line of lines) {
                 let parts = line.split("-");
@@ -140,25 +143,35 @@
                     let en = parts[0].trim();
                     let vi = parts[1].trim();
                     if (en && vi) {
+                        const lang = /[ぁ-んァ-ン一-龥]/.test(en) ? 'ja' : 'en';
                         words.push({
                             en,
-                            vi
+                            vi,
+                            lang
                         });
                     }
                 }
             }
 
             if (words.length < 4) {
-                alert("Bạn cần nhập ít nhất 4 từ vựng để chơi!");
+                alert("Bạn cần nhập ít nhất 4 từ để chơi!");
                 return;
             }
 
+            // Reset
+            currentIndex = 0;
+            correctCount = 0;
+            review = [];
+
             document.getElementById("game").classList.remove("hide");
             document.getElementById("summary").classList.add("hide");
-            nextWord();
+
+            loadWord();
         }
 
-        function nextWord() {
+        function loadWord() {
+            document.getElementById("result").textContent = "";
+
             if (currentIndex >= words.length) {
                 showSummary();
                 return;
@@ -166,19 +179,9 @@
 
             const current = words[currentIndex];
             document.getElementById("word").textContent = current.en;
-            speakWord(current.en);
-            document.getElementById("result").textContent = "";
+            speakWord(current.en, current.lang);
 
-            let choices = [current.vi];
-            while (choices.length < 4) {
-                let vi = words[Math.floor(Math.random() * words.length)].vi;
-                if (!choices.includes(vi)) {
-                    choices.push(vi);
-                }
-            }
-
-            choices.sort(() => Math.random() - 0.5);
-
+            const choices = getRandomChoices(current.vi);
             const choicesContainer = document.getElementById("choices");
             choicesContainer.innerHTML = "";
 
@@ -186,56 +189,72 @@
                 const card = document.createElement("div");
                 card.className = "card";
                 card.textContent = choice;
-
                 card.onclick = () => {
-                    const isCorrect = choice === current.vi;
-                    if (isCorrect) {
+                    if (choice === current.vi) {
                         card.classList.add("correct");
                         document.getElementById("result").textContent = "✅ Chính xác!";
                         document.getElementById("result").style.color = "green";
                         correctCount++;
+                        review.push({...current,
+                            correct: true
+                        });
                     } else {
                         card.classList.add("wrong");
                         document.getElementById("result").textContent = `❌ Sai! Đáp án đúng: ${current.vi}`;
                         document.getElementById("result").style.color = "red";
+                        review.push({...current,
+                            correct: false
+                        });
                     }
-
-                    questions.push({
-                        word: current.en,
-                        correct: current.vi,
-                        userAnswer: choice,
-                        isCorrect
-                    });
-
+                    disableChoices();
                     setTimeout(() => {
                         currentIndex++;
-                        nextWord();
-                    }, 1800);
+                        loadWord();
+                    }, 2000);
                 };
-
                 choicesContainer.appendChild(card);
             });
         }
 
+        function disableChoices() {
+            document.querySelectorAll(".card").forEach(card => {
+                card.onclick = null;
+            });
+        }
+
+        function getRandomChoices(correct) {
+            let choices = [correct];
+            while (choices.length < 4) {
+                const random = words[Math.floor(Math.random() * words.length)].vi;
+                if (!choices.includes(random)) choices.push(random);
+            }
+            return choices.sort(() => Math.random() - 0.5);
+        }
+
+        function speakWord(text, lang) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = lang === 'ja' ? 'ja-JP' : 'en-US';
+            utterance.rate = 0.9;
+            speechSynthesis.speak(utterance);
+        }
+
         function showSummary() {
             document.getElementById("game").classList.add("hide");
-            const summaryDiv = document.getElementById("summary");
-            summaryDiv.classList.remove("hide");
+            document.getElementById("summary").classList.remove("hide");
 
-            let html = `<h3>🎉 Kết quả: đúng ${correctCount}/${words.length}</h3><ul>`;
-            questions.forEach((q, i) => {
-                        html += `<li><strong>${i + 1}. ${q.word}</strong> - Bạn chọn: ${q.userAnswer} ${q.isCorrect ? '✅' : `❌ (Đúng: ${q.correct})`}</li>`;
-      });
-      html += "</ul>";
-      summaryDiv.innerHTML = html;
-    }
+            const scoreText = `Bạn trả lời đúng ${correctCount} / ${words.length} câu.`;
+            document.getElementById("scoreText").textContent = scoreText;
 
-    function speakWord(text) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = /[ぁ-んァ-ン一-龥]/.test(text) ? 'ja-JP' : 'en-US';
-      utterance.rate = 0.9;
-      speechSynthesis.speak(utterance);
-    }
+            const reviewList = document.getElementById("reviewList");
+            reviewList.innerHTML = "";
+
+            review.forEach(item => {
+                const li = document.createElement("li");
+                li.textContent = `${item.en} → ${item.vi} : ${item.correct ? "✅ Đúng" : "❌ Sai"}`;
+                li.style.color = item.correct ? "green" : "red";
+                reviewList.appendChild(li);
+            });
+        }
     </script>
 </body>
 
