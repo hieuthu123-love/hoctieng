@@ -190,6 +190,9 @@
             correctCount = 0;
             review = [];
 
+            // 🔀 Trộn ngẫu nhiên thứ tự câu hỏi
+            words = shuffleArray(words);
+
             document.getElementById("game").classList.remove("hide");
             document.getElementById("summary").classList.add("hide");
 
@@ -288,6 +291,15 @@
                 li.style.color = item.correct ? "green" : "red";
                 reviewList.appendChild(li);
             });
+        }
+
+        // 🔄 Hàm trộn ngẫu nhiên mảng
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
         }
     </script>
 </body>
