@@ -16,7 +16,10 @@
             width: 100%;
             height: 100%;
             font-family: 'Segoe UI', sans-serif;
-            background: linear-gradient(to bottom right, #c3e0f3, #f9f9f9);
+            background-image: url('anhdep.jpg');
+            background-size: cover;
+            background-position: center center;
+            background-repeat: no-repeat;
             text-align: center;
             overflow-x: hidden;
             padding: 20px 10px 40px;
@@ -37,6 +40,12 @@
             border: 1px solid #ccc;
             margin: 10px auto 20px;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+        }
+        
+        textarea:focus {
+            border-color: #0077ff;
+            box-shadow: 0 0 8px rgba(0, 119, 255, 0.5);
         }
         
         button {
@@ -46,8 +55,8 @@
             border-radius: 10px;
             cursor: pointer;
             margin: 10px 5px;
-            transition: background-color 0.3s, transform 0.2s;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s, transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
         
         button:hover {
@@ -86,6 +95,7 @@
             font-weight: bold;
             color: #003366;
             margin: 20px 0 10px;
+            text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
         }
         
         .choices {
@@ -104,12 +114,13 @@
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
             cursor: pointer;
             font-size: 18px;
-            transition: transform 0.2s, background-color 0.3s;
+            transition: transform 0.2s, background-color 0.3s, box-shadow 0.3s;
         }
         
         .card:hover {
             background-color: #e8f4ff;
             transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
         }
         
         .correct {
@@ -145,6 +156,36 @@
             font-size: 18px;
         }
         
+        .mode-button-container {
+            margin-top: 20px;
+        }
+        
+        .mode-btn {
+            width: 70px;
+            height: 70px;
+            background-color: #ff914d;
+            color: white;
+            font-size: 20px;
+            border: none;
+            border-radius: 50%;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.3s ease, background-color 0.3s ease;
+            margin: 0 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+        }
+        
+        .mode-btn:hover {
+            transform: scale(1.1);
+            background-color: #ff704d;
+        }
+        
+        .mode-btn:focus {
+            outline: none;
+        }
+        
         @media (max-width: 600px) {
             .word {
                 font-size: 28px;
@@ -161,6 +202,13 @@
 
     <h2>Nhập từ vựng (mỗi dòng: từ gốc - nghĩa)</h2>
     <textarea id="inputWords" placeholder="Ví dụ: apple - quả táo&#10;犬 - con chó"></textarea>
+    <br>
+
+    <div class="mode-button-container">
+        <button class="mode-btn" onclick="setGameMode('multiple')">🅼</button>
+        <button class="mode-btn" onclick="setGameMode('typing')">🅣</button>
+    </div>
+
     <br>
     <button class="start-btn" onclick="startGame()">🎮 Bắt đầu chơi</button>
 
@@ -187,6 +235,12 @@
         let review = [];
         let currentWord = null;
         let soundEnabled = true;
+        let gameMode = "multiple";
+
+        function setGameMode(mode) {
+            gameMode = mode;
+            console.log(`Chế độ chơi: ${gameMode}`);
+        }
 
         function startGame() {
             const input = document.getElementById("inputWords").value.trim();
@@ -238,39 +292,74 @@
             document.getElementById("word").textContent = current.en;
             speakWord(current.en, current.lang);
 
-            const choices = getRandomChoices(current.vi);
             const container = document.getElementById("choices");
             container.innerHTML = "";
 
-            choices.forEach(choice => {
-                const card = document.createElement("div");
-                card.className = "card";
-                card.textContent = choice;
-                card.onclick = () => {
-                    if (choice === current.vi) {
-                        card.classList.add("correct");
-                        document.getElementById("result").textContent = "✅ Chính xác!";
-                        document.getElementById("result").style.color = "green";
-                        correctCount++;
-                        review.push({...current,
-                            correct: true
-                        });
-                    } else {
-                        card.classList.add("wrong");
-                        document.getElementById("result").textContent = `❌ Sai! Đáp án đúng: ${current.vi}`;
-                        document.getElementById("result").style.color = "red";
-                        review.push({...current,
-                            correct: false
-                        });
-                    }
-                    disableChoices();
-                    setTimeout(() => {
-                        currentIndex++;
-                        loadWord();
-                    }, 2000);
-                };
-                container.appendChild(card);
-            });
+            if (gameMode === "typing") {
+                container.innerHTML = `
+                    <input type="text" id="userAnswer" placeholder="Nhập nghĩa của từ" style="padding: 10px; font-size: 16px; border-radius: 8px; width: 80%; max-width: 400px; border: 1px solid #ccc;">
+                    <br>
+                    <button onclick="checkTypingAnswer()" style="margin-top: 10px;" class="start-btn">Kiểm tra</button>
+                `;
+            } else {
+                const choices = getRandomChoices(current.vi);
+                choices.forEach(choice => {
+                    const card = document.createElement("div");
+                    card.className = "card";
+                    card.textContent = choice;
+                    card.onclick = () => {
+                        if (choice === current.vi) {
+                            card.classList.add("correct");
+                            document.getElementById("result").textContent = "✅ Chính xác!";
+                            document.getElementById("result").style.color = "green";
+                            correctCount++;
+                            review.push({...current,
+                                correct: true
+                            });
+                        } else {
+                            card.classList.add("wrong");
+                            document.getElementById("result").textContent = `❌ Sai! Đáp án đúng: ${current.vi}`;
+                            document.getElementById("result").style.color = "red";
+                            review.push({...current,
+                                correct: false
+                            });
+                        }
+                        disableChoices();
+                        setTimeout(() => {
+                            currentIndex++;
+                            loadWord();
+                        }, 2000);
+                    };
+                    container.appendChild(card);
+                });
+            }
+        }
+
+        function checkTypingAnswer() {
+            const userInput = document.getElementById("userAnswer").value.trim().toLowerCase();
+            const correctAnswer = currentWord.vi.toLowerCase();
+
+            if (!userInput) return;
+
+            if (userInput === correctAnswer) {
+                document.getElementById("result").textContent = "✅ Chính xác!";
+                document.getElementById("result").style.color = "green";
+                correctCount++;
+                review.push({...currentWord,
+                    correct: true
+                });
+            } else {
+                document.getElementById("result").textContent = `❌ Sai! Đáp án đúng: ${currentWord.vi}`;
+                document.getElementById("result").style.color = "red";
+                review.push({...currentWord,
+                    correct: false
+                });
+            }
+
+            setTimeout(() => {
+                currentIndex++;
+                loadWord();
+            }, 2000);
         }
 
         function disableChoices() {
